@@ -1,0 +1,1 @@
+This repository contains an implementation of a newsletter system using Rust, inspired by the book "Zero To Production." Unlike the book's guidance, this project utilizes the Axum framework instead of Actix-web. The project is currently a work in progress, and I am actively continuing its development.
