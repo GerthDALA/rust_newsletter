@@ -6,13 +6,13 @@ use uuid::Uuid;
 use axum::{extract::State, response::IntoResponse, Form};
 use serde::Deserialize;
 
-use crate::startup::AppState;
+use crate::{domain::NewSubscriber, startup::AppState};
 
 
 #[derive(Deserialize)]
 pub struct  FormData {
-    email: String,
-    name: String
+    pub email: String,
+    pub name: String
 }
 
 #[tracing::instrument(
@@ -24,8 +24,14 @@ pub struct  FormData {
     )
 )]
 pub async fn subscribe(State(connection): State<Arc<AppState>>, Form(form_data): Form<FormData>) -> impl IntoResponse {
+
+    let new_subscriber = match form_data.try_into() {
+        Ok(form_data) => form_data,
+        Err(_) => return StatusCode::BAD_REQUEST
+    };
+
    
-     match insert_subscriber(connection, &form_data) .await
+     match insert_subscriber(connection, &new_subscriber) .await
     {
         Ok(_) =>  StatusCode::OK,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR
@@ -36,9 +42,9 @@ pub async fn subscribe(State(connection): State<Arc<AppState>>, Form(form_data):
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(form_data, connection)
+    skip(new_subscriber, connection)
 )]
-pub async fn insert_subscriber(connection: Arc<AppState>, form_data: &FormData) -> Result<(), sqlx::Error> {
+pub async fn insert_subscriber(connection: Arc<AppState>, new_subscriber: &NewSubscriber) -> Result<(), sqlx::Error> {
 
     sqlx::query!(
         r#"
@@ -46,8 +52,8 @@ pub async fn insert_subscriber(connection: Arc<AppState>, form_data: &FormData) 
         VALUES ($1, $2, $3, $4)
         "#,
         Uuid::new_v4(),
-        form_data.email,
-        form_data.name,
+        new_subscriber.email.as_ref(),
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     .execute(&connection.db_pool)
